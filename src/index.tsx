@@ -1,21 +1,22 @@
 import "dotenv/config";
 
-import { App, BlockAction, BlockElementAction } from "@slack/bolt";
+import { App, BlockAction, BlockElementAction, ExpressReceiver } from "@slack/bolt";
 import express, { Request, Response } from "express";
 
 import { prisma } from "./prisma";
 import { postPoll, refreshPoll } from "./pollUtil";
 
-const expressApp = express();
-expressApp.use(express.json());
+const receiver = new ExpressReceiver({
+  signingSecret: process.env.SLACK_SIGNING_SECRET!,
+});
 
 export const app = new App({
   token: process.env.SLACK_TOKEN,
-  signingSecret: process.env.SLACK_SIGNING_SECRET,
-  endpoints: {
-    events: "/slack/events",
-  },
+  receiver,
 });
+
+const expressApp = receiver.app;
+expressApp.use(express.json());
 
 // Vote button handler
 app.action(/vote:(.+):(.+)/, async ({ action, ack, body }) => {
@@ -136,6 +137,11 @@ app.view("addOption", async ({ view, body, ack }) => {
   await refreshPoll(poll.id);
 });
 
+// Health check
+expressApp.get("/health", (_req: Request, res: Response) => {
+  res.json({ ok: true, status: "healthy" });
+});
+
 // REST API: Create poll
 expressApp.post("/create", async (req: Request, res: Response) => {
   try {
@@ -207,11 +213,6 @@ expressApp.post("/toggle/:id", async (req: Request, res: Response) => {
   }
 });
 
-// Health check
-expressApp.get("/health", (_req: Request, res: Response) => {
-  res.json({ ok: true, status: "healthy" });
-});
-
 // REST API: Get poll
 expressApp.get("/poll/:id", async (req: Request, res: Response) => {
   try {
@@ -231,16 +232,11 @@ expressApp.get("/poll/:id", async (req: Request, res: Response) => {
   }
 });
 
-// Mount Slack events on Express
-expressApp.use("/slack/events", app.receiver?.router ?? express.Router());
-
 const PORT = parseInt(process.env.PORT as string) || 3000;
 
 async function main() {
-  await app.start();
-  expressApp.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-  });
+  await app.start(PORT);
+  console.log(`Server running on port ${PORT}`);
 }
 
 main();
