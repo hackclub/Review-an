@@ -111,9 +111,7 @@ export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
       elements: [
         {
           type: "mrkdwn",
-          text: poll.createdBy
-            ? `Created by <@${poll.createdBy}> with \`/denopoll\``
-            : "Created with the Denopoll workflow step",
+          text: "Created with Denopoll API",
         },
       ],
     },

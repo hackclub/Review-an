@@ -1,18 +1,30 @@
-FROM node:18-alpine
+FROM node:18-bookworm-slim AS builder
 
-# Install modern OpenSSL (3.x) and compatibility headers
-RUN apk add --no-cache openssl libc6-compat
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /usr/src/app
 
+COPY package*.json ./
+RUN npm install
+
 COPY . .
-
-# Install dependencies
-RUN yarn install
-
-# Explicitly generate the client inside the container environment
 RUN npx prisma generate
+RUN npm run build
 
-RUN yarn build
+FROM node:18-bookworm-slim AS runner
 
-CMD ["yarn", "start"]
+RUN apt-get update && apt-get install -y openssl && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /usr/src/app
+
+COPY --from=builder /usr/src/app/dist ./dist
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/package*.json ./
+COPY --from=builder /usr/src/app/prisma ./prisma
+
+ENV NODE_ENV=production
+ENV PORT=3000
+
+EXPOSE 3000
+
+CMD ["npm", "start"]

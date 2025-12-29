@@ -1,16 +1,18 @@
-version: "3"
 services:
   main:
     build:
       context: .
       dockerfile: dev.Dockerfile
     ports:
-      - "2345:2345"
+      - "2345:3000"
     volumes:
       - ".:/usr/src/app"
+      - "/usr/src/app/node_modules"
     env_file: .env
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/dinopoll
+    depends_on:
+      - db
     restart: always
   db:
     image: postgres:alpine

@@ -1,12 +1,4 @@
 import { Poll } from "@prisma/client";
-import JSXSlack, {
-  Blocks,
-  Button,
-  Context,
-  Input,
-  Modal,
-  Section,
-} from "jsx-slack";
 
 import { prisma, PollWithOptions } from "./prisma";
 import message from "./message";
@@ -34,41 +26,16 @@ export async function postPoll(poll: Poll): Promise<Poll> {
   });
 
   poll = await prisma.poll.update({
-    where: {
-      id: poll.id,
-    },
-    data: {
-      timestamp: resp.message?.ts,
-    },
+    where: { id: poll.id },
+    data: { timestamp: resp.message?.ts },
   });
-
-  if (poll.createdBy) {
-    await app.client.chat.postEphemeral({
-      text: `Poll successfully created! Run \`/denopoll-toggle ${poll.id}\` to close the poll once you're done.`,
-      blocks: JSXSlack(
-        <Blocks>
-          <Section>
-            Poll successfully created! Run{" "}
-            <code>/denopoll-toggle {poll.id}</code> to close the poll once
-            you're done.
-            <Button actionId="dinoFact">:sauropod:</Button>
-          </Section>
-        </Blocks>,
-      ),
-      channel: poll.channel,
-      user: poll.createdBy,
-      token: process.env.SLACK_TOKEN,
-    });
-  }
 
   return poll;
 }
 
 export async function getPoll(id: number): Promise<PollWithOptions> {
   const poll = await prisma.poll.findUnique({
-    where: {
-      id,
-    },
+    where: { id },
     include: {
       options: {
         orderBy: { id: "asc" },
@@ -79,33 +46,4 @@ export async function getPoll(id: number): Promise<PollWithOptions> {
   });
 
   return poll!;
-}
-
-export async function togglePoll(id: string, user: string) {
-  try {
-    const poll = await prisma.poll.findFirst({
-      where: {
-        id: parseInt(id),
-        createdBy: user,
-      },
-    });
-
-    if (!poll) {
-      return null;
-    }
-
-    await prisma.poll.update({
-      where: {
-        id: poll.id,
-      },
-      data: {
-        open: !poll.open,
-      },
-    });
-
-    await refreshPoll(poll.id);
-    return poll;
-  } catch (e) {
-    throw e;
-  }
 }
