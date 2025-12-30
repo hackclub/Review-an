@@ -156,7 +156,7 @@ expressApp.get("/health", (_req: Request, res: Response) => {
 // REST API: Create poll
 expressApp.post("/create", apiAuth, async (req: Request, res: Response) => {
   try {
-    const { title, options, channel, othersCanAdd, multipleVotes, anonymous } =
+    const { title, options, channel, othersCanAdd, multipleVotes, anonymous, description, imageUrl } =
       req.body;
 
     if (!title || !options || !channel) {
@@ -183,7 +183,7 @@ expressApp.post("/create", apiAuth, async (req: Request, res: Response) => {
       include: { options: { select: { id: true, name: true } } },
     });
 
-    const posted = await postPoll(poll);
+    const posted = await postPoll(poll, { description, imageUrl });
 
     res.json({
       ok: true,
