@@ -53,7 +53,7 @@ export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `:${poll.open ? "" : "lock"}: *${poll.title}*${
+        text: `${poll.open ? "" : ":lock: "}*${poll.title}*${
           tags.length > 0 ? " (" + tags.join(", ") + ")" : ""
         }`,
       },
