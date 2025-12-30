@@ -4,7 +4,7 @@ import { App, BlockAction, BlockElementAction, ExpressReceiver } from "@slack/bo
 import express, { Request, Response } from "express";
 
 import { prisma } from "./prisma";
-import { postPoll, refreshPoll } from "./pollUtil";
+import { postPoll, refreshPoll, startPollAutoCloseScheduler } from "./pollUtil";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET!,
@@ -248,6 +248,7 @@ const PORT = parseInt(process.env.PORT as string) || 3000;
 async function main() {
   await app.start(PORT);
   console.log(`Server running on port ${PORT}`);
+  startPollAutoCloseScheduler();
 }
 
 main();

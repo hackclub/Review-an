@@ -75,3 +75,42 @@ export async function getPoll(id: number): Promise<PollWithOptions> {
 
   return poll!;
 }
+
+const POLL_DURATION_MS = 48 * 60 * 60 * 1000; // 48 hours
+
+export async function closeExpiredPolls() {
+  const cutoff = new Date(Date.now() - POLL_DURATION_MS);
+
+  const expiredPolls = await prisma.poll.findMany({
+    where: {
+      open: true,
+      createdOn: { lte: cutoff },
+    },
+  });
+
+  for (const poll of expiredPolls) {
+    await prisma.poll.update({
+      where: { id: poll.id },
+      data: { open: false },
+    });
+    await refreshPoll(poll.id);
+    console.log(`Auto-closed poll ${poll.id}: ${poll.title}`);
+  }
+
+  return expiredPolls.length;
+}
+
+export function startPollAutoCloseScheduler() {
+  const CHECK_INTERVAL_MS = 300 * 1000; // Check every 5 minutes
+  setInterval(async () => {
+    try {
+      const closed = await closeExpiredPolls();
+      if (closed > 0) {
+        console.log(`Auto-closed ${closed} expired poll(s)`);
+      }
+    } catch (err) {
+      console.error("Error in poll auto-close scheduler:", err);
+    }
+  }, CHECK_INTERVAL_MS);
+  console.log("Poll auto-close scheduler started (48 hour limit)");
+}

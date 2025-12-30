@@ -53,7 +53,7 @@ export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
       type: "section",
       text: {
         type: "mrkdwn",
-        text: `:${poll.open ? "clipboard" : "lock"}: *${poll.title}*${
+        text: `:${poll.open ? "‎ " : "lock"}: *${poll.title}*${
           tags.length > 0 ? " (" + tags.join(", ") + ")" : ""
         }`,
       },
@@ -111,7 +111,7 @@ export default (poll: PollWithOptions): (Block | KnownBlock)[] => {
       elements: [
         {
           type: "mrkdwn",
-          text: "Created with Denopoll API",
+          text: "After 48 Hours the vote will close and prize will be paid out!",
         },
       ],
     },
