@@ -12,3 +12,14 @@ export function checkInput(i: string): boolean {
 
   return true;
 }
+
+export function stripMentions(text: string): string {
+  return text
+    .replace(/@channel/gi, "")
+    .replace(/<!channel>/gi, "")
+    .replace(/@everyone/gi, "")
+    .replace(/<!everyone>/gi, "")
+    .replace(/@here/gi, "")
+    .replace(/<!here>/gi, "")
+    .trim();
+}

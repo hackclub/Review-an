@@ -3,6 +3,7 @@ import { Poll } from "@prisma/client";
 import { prisma, PollWithOptions } from "./prisma";
 import message from "./message";
 import { app } from "./index";
+import { stripMentions } from "./util";
 
 export async function refreshPoll(pollId: number) {
   const poll = await getPoll(pollId);
@@ -60,7 +61,7 @@ export async function postPoll(
     if (extra.description) {
       extraBlocks.push({
         type: "section",
-        text: { type: "mrkdwn", text: extra.description },
+        text: { type: "mrkdwn", text: stripMentions(extra.description) },
       });
     }
 
