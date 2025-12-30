@@ -8,6 +8,7 @@ import { postPoll, refreshPoll } from "./pollUtil";
 
 const receiver = new ExpressReceiver({
   signingSecret: process.env.SLACK_SIGNING_SECRET!,
+  processBeforeResponse: true,
 });
 
 export const app = new App({
@@ -17,6 +18,16 @@ export const app = new App({
 
 const expressApp = receiver.app;
 expressApp.use(express.json());
+
+// API authentication middleware
+const apiAuth = (req: Request, res: Response, next: Function) => {
+  const token = req.headers.authorization?.replace("Bearer ", "");
+  if (!token || token !== process.env.API_SECRET) {
+    res.status(401).json({ ok: false, error: "Unauthorized" });
+    return;
+  }
+  next();
+};
 
 // Vote button handler
 app.action(/vote:(.+):(.+)/, async ({ action, ack, body }) => {
@@ -143,7 +154,7 @@ expressApp.get("/health", (_req: Request, res: Response) => {
 });
 
 // REST API: Create poll
-expressApp.post("/create", async (req: Request, res: Response) => {
+expressApp.post("/create", apiAuth, async (req: Request, res: Response) => {
   try {
     const { title, options, channel, othersCanAdd, multipleVotes, anonymous } =
       req.body;
@@ -190,7 +201,7 @@ expressApp.post("/create", async (req: Request, res: Response) => {
 });
 
 // REST API: Toggle poll
-expressApp.post("/toggle/:id", async (req: Request, res: Response) => {
+expressApp.post("/toggle/:id", apiAuth, async (req: Request, res: Response) => {
   try {
     const pollId = parseInt(req.params.id);
     const poll = await prisma.poll.findUnique({ where: { id: pollId } });
