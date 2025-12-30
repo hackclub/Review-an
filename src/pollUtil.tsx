@@ -49,12 +49,12 @@ async function uploadImageToSlack(
 
 export async function postPoll(
   poll: Poll,
-  extra?: { description?: string; imageUrl?: string }
+  extra?: { description?: string; imageUrls?: string[] }
 ): Promise<Poll> {
   const blocks = message(await getPoll(poll.id));
 
-  // Add description and image at the start (after title)
-  if (extra?.description || extra?.imageUrl) {
+  // Add description and images at the start (after title)
+  if (extra?.description || (extra?.imageUrls && extra.imageUrls.length > 0)) {
     const insertIndex = 1; // After the title block
     const extraBlocks = [];
 
@@ -65,18 +65,20 @@ export async function postPoll(
       });
     }
 
-    if (extra.imageUrl) {
-      const slackImageUrl = await uploadImageToSlack(
-        extra.imageUrl,
-        poll.channel,
-        poll.title
-      );
-      if (slackImageUrl) {
-        extraBlocks.push({
-          type: "image",
-          image_url: slackImageUrl,
-          alt_text: poll.title,
-        });
+    if (extra.imageUrls) {
+      for (const imageUrl of extra.imageUrls) {
+        const slackImageUrl = await uploadImageToSlack(
+          imageUrl,
+          poll.channel,
+          poll.title
+        );
+        if (slackImageUrl) {
+          extraBlocks.push({
+            type: "image",
+            image_url: slackImageUrl,
+            alt_text: poll.title,
+          });
+        }
       }
     }
 
