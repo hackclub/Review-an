@@ -50,6 +50,11 @@ app.action(/vote:(.+):(.+)/, async ({ action, ack, body }) => {
     return;
   }
 
+  // Subject cant vote
+  if (poll.subject && poll.subject === body.user.id) {
+    return;
+  }
+
   if (poll.multipleVotes) {
     const userVote = await prisma.vote.findUnique({
       where: {
@@ -156,7 +161,7 @@ expressApp.get("/health", (_req: Request, res: Response) => {
 // REST API: Create poll
 expressApp.post("/create", apiAuth, async (req: Request, res: Response) => {
   try {
-    const { title, options, channel, othersCanAdd, multipleVotes, anonymous, description, imageUrl } =
+    const { title, options, channel, othersCanAdd, multipleVotes, anonymous, description, imageUrl, subject } =
       req.body;
 
     if (!title || !options || !channel) {
@@ -179,6 +184,7 @@ expressApp.post("/create", apiAuth, async (req: Request, res: Response) => {
         othersCanAdd: othersCanAdd ?? false,
         multipleVotes: multipleVotes ?? false,
         anonymous: anonymous ?? false,
+        subject: subject ?? null,
       },
       include: { options: { select: { id: true, name: true } } },
     });

@@ -12,6 +12,7 @@ model Poll {
   id            Int          @id() @default(autoincrement())
   createdOn     DateTime     @default(now()) @db.Timestamp(6)
   createdBy     String?      @db.VarChar
+  subject       String?      @db.VarChar
   title         String       @db.VarChar
   anonymous     Boolean      @default(false)
   multipleVotes Boolean      @default(false)

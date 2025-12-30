@@ -17,6 +17,35 @@ export async function refreshPoll(pollId: number) {
   });
 }
 
+async function uploadImageToSlack(
+  imageUrl: string,
+  channel: string,
+  altText: string
+): Promise<string | null> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) return null;
+
+    const buffer = Buffer.from(await response.arrayBuffer());
+    const contentType = response.headers.get("content-type") || "image/png";
+    const ext = contentType.includes("jpeg") ? "jpg" : "png";
+
+    const uploaded = await app.client.files.uploadV2({
+      token: process.env.SLACK_TOKEN,
+      channel_id: channel,
+      file: buffer,
+      filename: `poll-image-${Date.now()}.${ext}`,
+      alt_text: altText,
+    });
+
+    const file = uploaded.file ?? (uploaded.files as any)?.[0]?.files?.[0];
+    return file?.permalink_public || file?.url_private || null;
+  } catch (err) {
+    console.error("Failed to upload image to Slack:", err);
+    return null;
+  }
+}
+
 export async function postPoll(
   poll: Poll,
   extra?: { description?: string; imageUrl?: string }
@@ -36,11 +65,18 @@ export async function postPoll(
     }
 
     if (extra.imageUrl) {
-      extraBlocks.push({
-        type: "image",
-        image_url: extra.imageUrl,
-        alt_text: poll.title,
-      });
+      const slackImageUrl = await uploadImageToSlack(
+        extra.imageUrl,
+        poll.channel,
+        poll.title
+      );
+      if (slackImageUrl) {
+        extraBlocks.push({
+          type: "image",
+          image_url: slackImageUrl,
+          alt_text: poll.title,
+        });
+      }
     }
 
     blocks.splice(insertIndex, 0, ...extraBlocks);
