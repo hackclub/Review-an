@@ -14,6 +14,8 @@ model Poll {
   createdBy     String?      @db.VarChar
   subject       String?      @db.VarChar
   title         String       @db.VarChar
+  description   String?      @db.Text
+  imageUrls     String[]     @default([])
   anonymous     Boolean      @default(false)
   multipleVotes Boolean      @default(false)
   othersCanAdd  Boolean      @default(false)

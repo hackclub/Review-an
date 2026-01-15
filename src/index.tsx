@@ -172,9 +172,13 @@ expressApp.post("/create", apiAuth, async (req: Request, res: Response) => {
       return;
     }
 
+    const resolvedImageUrls = imageUrls ?? (imageUrl ? [imageUrl] : []);
+
     const poll = await prisma.poll.create({
       data: {
         title,
+        description: description ?? null,
+        imageUrls: resolvedImageUrls,
         options: {
           createMany: {
             data: options.map((i: string) => ({ name: i })),
@@ -189,8 +193,7 @@ expressApp.post("/create", apiAuth, async (req: Request, res: Response) => {
       include: { options: { select: { id: true, name: true } } },
     });
 
-    const resolvedImageUrls = imageUrls ?? (imageUrl ? [imageUrl] : []);
-    const posted = await postPoll(poll, { description, imageUrls: resolvedImageUrls });
+    const posted = await postPoll(poll);
 
     res.json({
       ok: true,

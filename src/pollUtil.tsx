@@ -5,6 +5,40 @@ import message from "./message";
 import { app } from "./index";
 import { stripMentions } from "./util";
 
+function buildExtraBlocks(poll: PollWithOptions): any[] {
+  const extraBlocks = [];
+
+  if (poll.description) {
+    extraBlocks.push({
+      type: "section",
+      text: { type: "mrkdwn", text: stripMentions(poll.description) },
+    });
+  }
+
+  if (poll.imageUrls && poll.imageUrls.length > 0) {
+    for (const imageUrl of poll.imageUrls) {
+      extraBlocks.push({
+        type: "image",
+        image_url: imageUrl,
+        alt_text: poll.title,
+      });
+    }
+  }
+
+  return extraBlocks;
+}
+
+function buildFullBlocks(poll: PollWithOptions): any[] {
+  const blocks = message(poll);
+  const extraBlocks = buildExtraBlocks(poll);
+
+  if (extraBlocks.length > 0) {
+    blocks.splice(1, 0, ...extraBlocks);
+  }
+
+  return blocks;
+}
+
 export async function refreshPoll(pollId: number) {
   const poll = await getPoll(pollId);
   if (!poll) return;
@@ -12,7 +46,7 @@ export async function refreshPoll(pollId: number) {
   await app.client.chat.update({
     token: process.env.SLACK_TOKEN,
     text: "This message can't be displayed in your client.",
-    blocks: message(poll),
+    blocks: buildFullBlocks(poll),
     ts: poll.timestamp!,
     channel: poll.channel,
   });
@@ -25,7 +59,10 @@ async function uploadImageToSlack(
 ): Promise<string | null> {
   try {
     const response = await fetch(imageUrl);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+      return null;
+    }
 
     const buffer = Buffer.from(await response.arrayBuffer());
     const contentType = response.headers.get("content-type") || "image/png";
@@ -40,64 +77,55 @@ async function uploadImageToSlack(
     });
 
     const file = uploaded.file ?? (uploaded.files as any)?.[0]?.files?.[0];
-    return file?.permalink_public || file?.url_private || null;
+    const url = file?.permalink_public || file?.url_private;
+    console.log("Uploaded image to Slack:", url);
+    return url || null;
   } catch (err) {
     console.error("Failed to upload image to Slack:", err);
     return null;
   }
 }
 
-export async function postPoll(
-  poll: Poll,
-  extra?: { description?: string; imageUrls?: string[] }
-): Promise<Poll> {
-  const blocks = message(await getPoll(poll.id));
+export async function postPoll(poll: Poll): Promise<Poll> {
+  const fullPoll = await getPoll(poll.id);
 
-  // Add description and images at the start (after title)
-  if (extra?.description || (extra?.imageUrls && extra.imageUrls.length > 0)) {
-    const insertIndex = 1; // After the title block
-    const extraBlocks = [];
-
-    if (extra.description) {
-      extraBlocks.push({
-        type: "section",
-        text: { type: "mrkdwn", text: stripMentions(extra.description) },
-      });
-    }
-
-    if (extra.imageUrls) {
-      for (const imageUrl of extra.imageUrls) {
-        const slackImageUrl = await uploadImageToSlack(
-          imageUrl,
-          poll.channel,
-          poll.title
-        );
-        if (slackImageUrl) {
-          extraBlocks.push({
-            type: "image",
-            image_url: slackImageUrl,
-            alt_text: poll.title,
-          });
-        }
+  // Upload images to Slack and store the Slack URLs
+  const slackImageUrls: string[] = [];
+  if (fullPoll.imageUrls && fullPoll.imageUrls.length > 0) {
+    for (const imageUrl of fullPoll.imageUrls) {
+      const slackUrl = await uploadImageToSlack(
+        imageUrl,
+        poll.channel,
+        poll.title
+      );
+      if (slackUrl) {
+        slackImageUrls.push(slackUrl);
       }
     }
 
-    blocks.splice(insertIndex, 0, ...extraBlocks);
+    // Update poll with Slack-hosted URLs
+    await prisma.poll.update({
+      where: { id: poll.id },
+      data: { imageUrls: slackImageUrls },
+    });
   }
 
+  // Re-fetch to get updated imageUrls
+  const updatedPoll = await getPoll(poll.id);
+
   const resp = await app.client.chat.postMessage({
-    blocks,
+    blocks: buildFullBlocks(updatedPoll),
     text: "This message can't be displayed in your client.",
     channel: poll.channel,
     token: process.env.SLACK_TOKEN,
   });
 
-  poll = await prisma.poll.update({
+  const finalPoll = await prisma.poll.update({
     where: { id: poll.id },
     data: { timestamp: resp.message?.ts },
   });
 
-  return poll;
+  return finalPoll;
 }
 
 export async function getPoll(id: number): Promise<PollWithOptions> {
